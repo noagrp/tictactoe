@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tic Tac Toe: VS Computer</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --cell: #1a1a1a;
+            --p1: #00d2ff;
+            --pc: #ff00ff;
+            --win: #39ff14;
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            touch-action: manipulation;
+        }
+
+        #status { font-size: 1.2rem; margin-bottom: 15px; text-shadow: 0 0 10px var(--p1); }
+        
+        .menu { margin-bottom: 20px; display: flex; gap: 10px; }
+        .menu button {
+            padding: 10px 15px;
+            background: transparent;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .menu button.active { border-color: var(--p1); color: var(--p1); }
+
+        #grid {
+            display: grid;
+            gap: 8px;
+            background: #222;
+            padding: 8px;
+            border-radius: 10px;
+        }
+
+        .cell {
+            background: var(--cell);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.2s;
+        }
+
+        .cell.x { color: var(--p1); text-shadow: 0 0 15px var(--p1); }
+        .cell.o { color: var(--pc); text-shadow: 0 0 15px var(--pc); }
+        .cell.winner { background: var(--win); color: #000; }
+
+        #overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <h1 id="res-msg" style="font-size: 3rem;">YOU WIN</h1>
+        <button onclick="initGame()" style="padding: 15px 30px; background: var(--p1); border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">PLAY AGAIN</button>
+    </div>
+
+    <div id="status">YOUR TURN</div>
+
+    <div class="menu">
+        <button id="m3" class="active" onclick="setSize(3)">3x3</button>
+        <button id="m4" onclick="setSize(4)">4x4</button>
+        <button id="m5" onclick="setSize(5)">5x5</button>
+    </div>
+
+    <div id="grid"></div>
+
+    <script>
+        const gridEl = document.getElementById('grid');
+        const statusEl = document.getElementById('status');
+        const overlay = document.getElementById('overlay');
+        const resMsg = document.getElementById('res-msg');
+
+        let size = 3;
+        let board = [];
+        let isGameOver = false;
+        let turn = 'X'; // X is User, O is PC
+
+        function setSize(s) {
+            size = s;
+            document.querySelectorAll('.menu button').forEach(b => b.classList.remove('active'));
+            document.getElementById('m' + s).classList.add('active');
+            initGame();
+        }
+
+        function initGame() {
+            board = Array(size * size).fill('');
+            isGameOver = false;
+            turn = 'X';
+            overlay.style.display = 'none';
+            statusEl.innerText = "YOUR TURN";
+            render();
+        }
+
+        function render() {
+            gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            gridEl.innerHTML = '';
+            const cellSize = size === 3 ? 100 : size === 4 ? 75 : 60;
+
+            board.forEach((val, i) => {
+                const cell = document.createElement('div');
+                cell.className = `cell ${val.toLowerCase()}`;
+                cell.style.width = cell.style.height = cellSize + 'px';
+                cell.innerText = val;
+                cell.onclick = () => handleMove(i);
+                gridEl.appendChild(cell);
+            });
+        }
+
+        function handleMove(idx) {
+            if (board[idx] !== '' || isGameOver || turn !== 'X') return;
+
+            board[idx] = 'X';
+            render();
+            if (checkWin('X')) return endGame("YOU WIN");
+            if (board.every(b => b !== '')) return endGame("DRAW");
+
+            turn = 'O';
+            statusEl.innerText = "PC THINKING...";
+            setTimeout(pcMove, 500);
+        }
+
+        function pcMove() {
+            if (isGameOver) return;
+            
+            let move;
+            // 1. Try to Win
+            move = findBestSpot('O');
+            // 2. Block Player
+            if (move === null) move = findBestSpot('X');
+            // 3. Take Center if available
+            if (move === null && board[Math.floor(board.length / 2)] === '') move = Math.floor(board.length / 2);
+            // 4. Random
+            if (move === null) {
+                const available = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+                move = available[Math.floor(Math.random() * available.length)];
+            }
+
+            board[move] = 'O';
+            render();
+            
+            if (checkWin('O')) return endGame("PC WINS");
+            if (board.every(b => b !== '')) return endGame("DRAW");
+
+            turn = 'X';
+            statusEl.innerText = "YOUR TURN";
+        }
+
+        function findBestSpot(player) {
+            const lines = getLines();
+            for (let line of lines) {
+                const vals = line.map(idx => board[idx]);
+                const count = vals.filter(v => v === player).length;
+                const empty = vals.filter(v => v === '').length;
+                if (count === size - 1 && empty === 1) {
+                    return line[vals.indexOf('')];
+                }
+            }
+            return null;
+        }
+
+        function getLines() {
+            let lines = [];
+            // Rows
+            for (let r = 0; r < size; r++) {
+                let row = [];
+                for (let c = 0; c < size; c++) row.push(r * size + c);
+                lines.push(row);
+            }
+            // Cols
+            for (let c = 0; c < size; c++) {
+                let col = [];
+                for (let r = 0; r < size; r++) col.push(r * size + c);
+                lines.push(col);
+            }
+            // Diagonals
+            let d1 = [], d2 = [];
+            for (let i = 0; i < size; i++) {
+                d1.push(i * size + i);
+                d2.push(i * size + (size - 1 - i));
+            }
+            lines.push(d1, d2);
+            return lines;
+        }
+
+        function checkWin(player) {
+            const lines = getLines();
+            return lines.some(line => {
+                if (line.every(idx => board[idx] === player)) {
+                    line.forEach(idx => gridEl.children[idx].classList.add('winner'));
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        function endGame(msg) {
+            isGameOver = true;
+            resMsg.innerText = msg;
+            resMsg.style.color = msg.includes("YOU") ? "var(--p1)" : (msg.includes("PC") ? "var(--pc)" : "#fff");
+            setTimeout(() => { overlay.style.display = 'flex'; }, 800);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
