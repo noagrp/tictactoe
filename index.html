@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tic Tac Toe: VS Computer</title>
+    <title>Tic Tac Toe</title>
     <style>
         :root {
             --bg: #050505;
@@ -26,7 +26,34 @@
             touch-action: manipulation;
         }
 
-        #status { font-size: 1.2rem; margin-bottom: 15px; text-shadow: 0 0 10px var(--p1); }
+        /* NEON COLOR CHANGING HEADER */
+        .game-header {
+            font-size: 3rem;
+            font-weight: 900;
+            margin: 0 0 15px 0;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-align: center;
+            /* Animation links the keyframes below */
+            animation: neon-glow 4s infinite alternate;
+        }
+
+        @keyframes neon-glow {
+            0% {
+                color: var(--p1);
+                text-shadow: 0 0 10px var(--p1), 0 0 20px var(--p1), 0 0 40px var(--p1);
+            }
+            50% {
+                color: var(--pc);
+                text-shadow: 0 0 10px var(--pc), 0 0 20px var(--pc), 0 0 40px var(--pc);
+            }
+            100% {
+                color: var(--win);
+                text-shadow: 0 0 10px var(--win), 0 0 20px var(--win), 0 0 40px var(--win);
+            }
+        }
+
+        #status { font-size: 1.2rem; margin-bottom: 15px; text-shadow: 0 0 10px var(--p1); font-weight: bold; }
         
         .menu { margin-bottom: 20px; display: flex; gap: 10px; }
         .menu button {
@@ -36,8 +63,9 @@
             border: 1px solid #444;
             border-radius: 5px;
             cursor: pointer;
+            font-weight: bold;
         }
-        .menu button.active { border-color: var(--p1); color: var(--p1); }
+        .menu button.active { border-color: var(--p1); color: var(--p1); box-shadow: 0 0 10px var(--p1); }
 
         #grid {
             display: grid;
@@ -71,11 +99,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 10;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
+
+    <h1 class="game-header">Tic Tac Toe</h1>
 
     <div id="overlay">
         <h1 id="res-msg" style="font-size: 3rem;">YOU WIN</h1>
@@ -101,7 +131,7 @@
         let size = 3;
         let board = [];
         let isGameOver = false;
-        let turn = 'X'; // X is User, O is PC
+        let turn = 'X'; 
 
         function setSize(s) {
             size = s;
@@ -136,12 +166,10 @@
 
         function handleMove(idx) {
             if (board[idx] !== '' || isGameOver || turn !== 'X') return;
-
             board[idx] = 'X';
             render();
             if (checkWin('X')) return endGame("YOU WIN");
             if (board.every(b => b !== '')) return endGame("DRAW");
-
             turn = 'O';
             statusEl.innerText = "PC THINKING...";
             setTimeout(pcMove, 500);
@@ -149,37 +177,26 @@
 
         function pcMove() {
             if (isGameOver) return;
-            
-            let move;
-            // 1. Try to Win
-            move = findBestSpot('O');
-            // 2. Block Player
-            if (move === null) move = findBestSpot('X');
-            // 3. Take Center if available
-            if (move === null && board[Math.floor(board.length / 2)] === '') move = Math.floor(board.length / 2);
-            // 4. Random
-            if (move === null) {
-                const available = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
-                move = available[Math.floor(Math.random() * available.length)];
-            }
-
+            let move = findBestSpot('O') || findBestSpot('X') || takeCenterOrRandom();
             board[move] = 'O';
             render();
-            
             if (checkWin('O')) return endGame("PC WINS");
             if (board.every(b => b !== '')) return endGame("DRAW");
-
             turn = 'X';
             statusEl.innerText = "YOUR TURN";
+        }
+
+        function takeCenterOrRandom() {
+            if (board[Math.floor(board.length / 2)] === '') return Math.floor(board.length / 2);
+            const available = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+            return available[Math.floor(Math.random() * available.length)];
         }
 
         function findBestSpot(player) {
             const lines = getLines();
             for (let line of lines) {
                 const vals = line.map(idx => board[idx]);
-                const count = vals.filter(v => v === player).length;
-                const empty = vals.filter(v => v === '').length;
-                if (count === size - 1 && empty === 1) {
+                if (vals.filter(v => v === player).length === size - 1 && vals.filter(v => v === '').length === 1) {
                     return line[vals.indexOf('')];
                 }
             }
@@ -188,19 +205,16 @@
 
         function getLines() {
             let lines = [];
-            // Rows
             for (let r = 0; r < size; r++) {
                 let row = [];
                 for (let c = 0; c < size; c++) row.push(r * size + c);
                 lines.push(row);
             }
-            // Cols
             for (let c = 0; c < size; c++) {
                 let col = [];
                 for (let r = 0; r < size; r++) col.push(r * size + c);
                 lines.push(col);
             }
-            // Diagonals
             let d1 = [], d2 = [];
             for (let i = 0; i < size; i++) {
                 d1.push(i * size + i);
