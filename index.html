@@ -26,7 +26,6 @@
             touch-action: manipulation;
         }
 
-        /* NEON COLOR CHANGING HEADER */
         .game-header {
             font-size: 3rem;
             font-weight: 900;
@@ -34,36 +33,27 @@
             text-transform: uppercase;
             letter-spacing: 5px;
             text-align: center;
-            /* Animation links the keyframes below */
             animation: neon-glow 4s infinite alternate;
         }
 
         @keyframes neon-glow {
-            0% {
-                color: var(--p1);
-                text-shadow: 0 0 10px var(--p1), 0 0 20px var(--p1), 0 0 40px var(--p1);
-            }
-            50% {
-                color: var(--pc);
-                text-shadow: 0 0 10px var(--pc), 0 0 20px var(--pc), 0 0 40px var(--pc);
-            }
-            100% {
-                color: var(--win);
-                text-shadow: 0 0 10px var(--win), 0 0 20px var(--win), 0 0 40px var(--win);
-            }
+            0% { color: var(--p1); text-shadow: 0 0 10px var(--p1), 0 0 20px var(--p1); }
+            50% { color: var(--pc); text-shadow: 0 0 10px var(--pc), 0 0 20px var(--pc); }
+            100% { color: var(--win); text-shadow: 0 0 10px var(--win), 0 0 20px var(--win); }
         }
 
         #status { font-size: 1.2rem; margin-bottom: 15px; text-shadow: 0 0 10px var(--p1); font-weight: bold; }
         
-        .menu { margin-bottom: 20px; display: flex; gap: 10px; }
+        .menu { margin-bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
         .menu button {
-            padding: 10px 15px;
+            padding: 8px 12px;
             background: transparent;
             color: #fff;
             border: 1px solid #444;
             border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
+            transition: 0.3s;
         }
         .menu button.active { border-color: var(--p1); color: var(--p1); box-shadow: 0 0 10px var(--p1); }
 
@@ -115,6 +105,11 @@
     <div id="status">YOUR TURN</div>
 
     <div class="menu">
+        <button id="mode-pc" class="active" onclick="setMode('pc')">VS PC</button>
+        <button id="mode-2p" onclick="setMode('2p')">2 PLAYERS</button>
+    </div>
+
+    <div class="menu">
         <button id="m3" class="active" onclick="setSize(3)">3x3</button>
         <button id="m4" onclick="setSize(4)">4x4</button>
         <button id="m5" onclick="setSize(5)">5x5</button>
@@ -132,10 +127,18 @@
         let board = [];
         let isGameOver = false;
         let turn = 'X'; 
+        let gameMode = 'pc'; // 'pc' or '2p'
+
+        function setMode(m) {
+            gameMode = m;
+            document.getElementById('mode-pc').classList.toggle('active', m === 'pc');
+            document.getElementById('mode-2p').classList.toggle('active', m === '2p');
+            initGame();
+        }
 
         function setSize(s) {
             size = s;
-            document.querySelectorAll('.menu button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.menu button[id^="m"]').forEach(b => b.classList.remove('active'));
             document.getElementById('m' + s).classList.add('active');
             initGame();
         }
@@ -145,7 +148,7 @@
             isGameOver = false;
             turn = 'X';
             overlay.style.display = 'none';
-            statusEl.innerText = "YOUR TURN";
+            statusEl.innerText = gameMode === 'pc' ? "YOUR TURN (X)" : "PLAYER 1 TURN (X)";
             render();
         }
 
@@ -165,29 +168,56 @@
         }
 
         function handleMove(idx) {
-            if (board[idx] !== '' || isGameOver || turn !== 'X') return;
-            board[idx] = 'X';
+            if (board[idx] !== '' || isGameOver) return;
+            
+            if (gameMode === 'pc' && turn !== 'X') return;
+
+            board[idx] = turn;
             render();
-            if (checkWin('X')) return endGame("YOU WIN");
+
+            if (checkWin(turn)) return endGame(gameMode === 'pc' ? (turn === 'X' ? "YOU WIN" : "PC WINS") : `PLAYER ${turn === 'X' ? '1' : '2'} WINS`);
             if (board.every(b => b !== '')) return endGame("DRAW");
-            turn = 'O';
-            statusEl.innerText = "PC THINKING...";
-            setTimeout(pcMove, 500);
+
+            turn = turn === 'X' ? 'O' : 'X';
+            
+            if (gameMode === 'pc') {
+                statusEl.innerText = "PC THINKING...";
+                setTimeout(pcMove, 500);
+            } else {
+                statusEl.innerText = `PLAYER ${turn === 'X' ? '1' : '2'} TURN (${turn})`;
+            }
         }
 
         function pcMove() {
             if (isGameOver) return;
-            let move = findBestSpot('O') || findBestSpot('X') || takeCenterOrRandom();
+
+            // 1. Try to Win
+            let move = findBestSpot('O');
+            // 2. Block Player Win
+            if (move === null) move = findBestSpot('X');
+            // 3. Take Center if available
+            if (move === null) {
+                const center = Math.floor(board.length / 2);
+                if (board[center] === '') move = center;
+            }
+            // 4. Strategic move (Corners or Random)
+            if (move === null) move = getStrategicMove();
+
             board[move] = 'O';
             render();
+
             if (checkWin('O')) return endGame("PC WINS");
             if (board.every(b => b !== '')) return endGame("DRAW");
+
             turn = 'X';
-            statusEl.innerText = "YOUR TURN";
+            statusEl.innerText = "YOUR TURN (X)";
         }
 
-        function takeCenterOrRandom() {
-            if (board[Math.floor(board.length / 2)] === '') return Math.floor(board.length / 2);
+        function getStrategicMove() {
+            const corners = [0, size - 1, size * (size - 1), size * size - 1];
+            const availableCorners = corners.filter(i => board[i] === '');
+            if (availableCorners.length > 0) return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+            
             const available = board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
             return available[Math.floor(Math.random() * available.length)];
         }
@@ -196,6 +226,7 @@
             const lines = getLines();
             for (let line of lines) {
                 const vals = line.map(idx => board[idx]);
+                // Check if player is one move away from winning this line
                 if (vals.filter(v => v === player).length === size - 1 && vals.filter(v => v === '').length === 1) {
                     return line[vals.indexOf('')];
                 }
@@ -238,7 +269,10 @@
         function endGame(msg) {
             isGameOver = true;
             resMsg.innerText = msg;
-            resMsg.style.color = msg.includes("YOU") ? "var(--p1)" : (msg.includes("PC") ? "var(--pc)" : "#fff");
+            if (msg.includes("PLAYER 1") || msg === "YOU WIN") resMsg.style.color = "var(--p1)";
+            else if (msg.includes("PLAYER 2") || msg === "PC WINS") resMsg.style.color = "var(--pc)";
+            else resMsg.style.color = "#fff";
+            
             setTimeout(() => { overlay.style.display = 'flex'; }, 800);
         }
 
