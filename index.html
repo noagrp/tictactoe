@@ -20,7 +20,7 @@ body{
  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
  touch-action:manipulation;overflow:hidden
 }
-#app{width:min(94vw,520px);display:flex;flex-direction:column;align-items:center;gap:10px}
+#app{width:min(94vw,520px);display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0}
 .game-header{
  font-size:clamp(2rem,10vw,3rem);font-weight:900;margin:0;text-transform:uppercase;
  letter-spacing:clamp(2px,1vw,5px);text-align:center;animation:neon-glow 4s infinite alternate
@@ -49,13 +49,19 @@ body{
 #difficultyRow.hidden{display:none}
 #grid{
  width:var(--board);height:var(--board);display:grid;gap:clamp(5px,1.3vw,8px);
- background:#222;padding:clamp(6px,1.5vw,9px);border-radius:14px;box-shadow:0 0 28px rgba(0,210,255,.06)
+ background:#222;padding:clamp(6px,1.5vw,9px);border-radius:14px;box-shadow:0 0 28px rgba(0,210,255,.06);
+ flex:0 0 auto
 }
+#grid[data-size="4"]{width:min(86vw,64dvh,430px);height:min(86vw,64dvh,430px)}
+#grid[data-size="5"]{width:min(82vw,56dvh,390px);height:min(82vw,56dvh,390px);gap:clamp(3px,.9vw,6px);padding:clamp(5px,1vw,7px)}
 .cell{
+ min-width:0;min-height:0;overflow:hidden;
  background:var(--cell);display:flex;align-items:center;justify-content:center;
  font-size:clamp(2rem,14vw,4.6rem);font-weight:900;cursor:pointer;border-radius:8px;
  border:0;color:#fff;transition:transform .12s ease,background .18s ease,filter .18s ease
 }
+#grid[data-size="4"] .cell{font-size:clamp(1.65rem,10vw,3.6rem)}
+#grid[data-size="5"] .cell{font-size:clamp(1.35rem,8vw,2.8rem);border-radius:6px}
 .cell:active:empty{transform:scale(.96)}
 .cell.x{color:var(--p1);text-shadow:0 0 16px var(--p1)}
 .cell.o{color:var(--pc);text-shadow:0 0 16px var(--pc)}
@@ -63,7 +69,7 @@ body{
 .cell.just-played{animation:place .18s ease-out}
 @keyframes place{0%{transform:scale(.25);opacity:.2}100%{transform:scale(1);opacity:1}}
 @keyframes winpulse{50%{transform:scale(.94)}}
-.controls{display:flex;gap:8px;justify-content:center;width:100%}
+.controls{display:flex;gap:8px;justify-content:center;width:100%;flex:0 0 auto}
 .small-btn{min-width:110px}
 #overlay{
  display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
@@ -80,7 +86,15 @@ body{
 }
 @media(max-height:700px){
  :root{--board:min(76vw,56dvh,390px)}
+ #grid[data-size="4"]{width:min(74vw,51dvh,350px);height:min(74vw,51dvh,350px)}
+ #grid[data-size="5"]{width:min(70vw,46dvh,320px);height:min(70vw,46dvh,320px)}
  .game-header{font-size:1.8rem}.scorebox{padding:5px}.menus{gap:5px}.menu button{padding:5px 8px}
+}
+@media(max-height:580px){
+ #app{gap:6px}
+ #status{min-height:20px;font-size:.9rem}
+ .scorebox{padding:4px}.menu button,.small-btn{padding:4px 7px}
+ #grid[data-size="5"]{width:min(64vw,40dvh,280px);height:min(64vw,40dvh,280px)}
 }
 @media(prefers-reduced-motion:reduce){
  .game-header,.cell.winner,.cell.just-played{animation:none!important}.cell,.menu button,.small-btn{transition:none}
@@ -187,6 +201,7 @@ function initGame(){
  render();
 }
 function render(){
+ gridEl.dataset.size=size;
  gridEl.style.gridTemplateColumns=`repeat(${size},1fr)`;
  gridEl.style.gridTemplateRows=`repeat(${size},1fr)`;
  gridEl.innerHTML='';
